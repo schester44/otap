@@ -1,0 +1,21 @@
+{
+  "name": "otap",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.tsx",
+    "dev": "bun --watch run src/index.tsx"
+  },
+  "dependencies": {
+    "@msgpack/msgpack": "^3.0.0-beta2",
+    "@opentui/core": "^0.1.96",
+    "@opentui/react": "^0.1.96",
+    "react": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.1.0",
+    "typescript": "^5"
+  }
+}
