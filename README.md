@@ -2,6 +2,8 @@
 
 Local observability TUI — tap into Datadog traces and Sentry errors right in your terminal.
 
+![otap screenshot](screenshot.png)
+
 Single command. No config. Starts receivers, renders a TUI, tears down on exit.
 
 ## Quick Start
