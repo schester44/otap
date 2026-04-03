@@ -58,18 +58,22 @@ otap --drop health_check --drop "SELECT 1"
 
 Captures traces from **all** instrumented apps on your machine (any app sending to `localhost:8126`). Press `s` to cycle through discovered services as a filter.
 
-## Agent API
+## CLI
 
-otap exposes a JSON API on port 8126 for LLM/agent integration:
+`otap` doubles as a CLI for querying data from a running instance. Output is JSON — pipe to `jq` or use from scripts and AI agents.
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/summary` | Trace/error/service counts |
-| `GET /api/services` | List discovered services |
-| `GET /api/traces?service=X&limit=N` | List traces |
-| `GET /api/traces/:id` | Single trace with all spans |
-| `GET /api/errors?level=X&limit=N` | List errors |
-| `POST /api/clear` | Clear all data |
+```bash
+otap summary                       # trace/error/service counts
+otap services                      # list discovered services
+otap traces                        # recent traces
+otap traces --service risk-api     # filter by service
+otap traces --limit 10             # limit results
+otap trace TRACE_ID                # single trace with all spans
+otap errors                        # recent errors
+otap errors --level error          # filter by level
+otap clear                         # wipe stored data
+otap help                          # full usage
+```
 
 ## Configuration
 
