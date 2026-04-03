@@ -3,8 +3,6 @@ set -e
 
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-# otap — local observability TUI
-
 # Ensure bun is on PATH
 if ! command -v bun &>/dev/null; then
   export PATH="$HOME/.bun/bin:$PATH"
@@ -21,4 +19,83 @@ if [ ! -d "$DIR/node_modules" ]; then
   (cd "$DIR" && bun install)
 fi
 
-exec bun run "$DIR/src/index.tsx" "$@"
+PORT="${DD_PORT:-8126}"
+BASE="http://localhost:$PORT"
+
+case "${1:-}" in
+  summary)
+    exec curl -sf "$BASE/api/summary"
+    ;;
+  services)
+    exec curl -sf "$BASE/api/services"
+    ;;
+  traces)
+    shift
+    URL="$BASE/api/traces"
+    PARAMS=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --service) PARAMS="${PARAMS:+$PARAMS&}service=$2"; shift 2 ;;
+        --limit)   PARAMS="${PARAMS:+$PARAMS&}limit=$2"; shift 2 ;;
+        *)         shift ;;
+      esac
+    done
+    [[ -n "$PARAMS" ]] && URL="$URL?$PARAMS"
+    exec curl -sf "$URL"
+    ;;
+  trace)
+    shift
+    exec curl -sf "$BASE/api/traces/$1"
+    ;;
+  errors)
+    shift
+    URL="$BASE/api/errors"
+    PARAMS=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --level) PARAMS="${PARAMS:+$PARAMS&}level=$2"; shift 2 ;;
+        --limit) PARAMS="${PARAMS:+$PARAMS&}limit=$2"; shift 2 ;;
+        *)       shift ;;
+      esac
+    done
+    [[ -n "$PARAMS" ]] && URL="$URL?$PARAMS"
+    exec curl -sf "$URL"
+    ;;
+  clear)
+    exec curl -sf -X POST "$BASE/api/clear"
+    ;;
+  help|-h|--help)
+    cat <<EOF
+otap — local observability TUI
+
+USAGE
+  otap                         Start the TUI (receivers + terminal UI)
+  otap [options]               Start with options (e.g. --drop PATTERN)
+
+QUERY COMMANDS (requires otap TUI running)
+  otap summary                 Trace/error/service counts
+  otap services                List discovered services
+  otap traces                  List recent traces
+    --service NAME               Filter by service
+    --limit N                    Max results (default: 50)
+  otap trace TRACE_ID          Get a single trace with all spans
+  otap errors                  List recent errors
+    --level LEVEL                Filter by level (error, warning, info)
+    --limit N                    Max results (default: 50)
+  otap clear                   Clear all stored data
+
+EXAMPLES
+  otap                         Start the TUI
+  otap --drop health_check     Start, filtering health check spans
+  otap summary                 Quick overview
+  otap traces --service api    Traces from "api" service
+  otap trace 1234567890        Full trace detail
+  otap errors --level error    Only error-level events
+EOF
+    exit 0
+    ;;
+  *)
+    # No subcommand or unknown flag — start the TUI
+    exec bun run "$DIR/src/index.tsx" "$@"
+    ;;
+esac

@@ -1,10 +1,6 @@
 # Skill: otap — Trace & Error Inspection
 
-Use this skill when you need to inspect application traces, spans, or Sentry errors from the local development environment. otap must be running (`tools/otap/bin/otap`).
-
-## Overview
-
-The local-otel tool acts as a fake Datadog agent (port 8126) and Sentry server (port 8137). When the app runs with `DD_API_KEY=local`, all traces and errors flow into it. The tool exposes a JSON API on the same port (8126) that you can query with `curl`.
+Use this skill when you need to inspect application traces, spans, or Sentry errors from the local development environment. otap must be running (`otap` or `tools/otap/bin/otap`).
 
 ## Starting otap
 
@@ -19,19 +15,19 @@ otap --drop health_check --drop "SELECT 1"
 ## Checking if otap is running
 
 ```bash
-curl -s http://localhost:8126/api/summary 2>/dev/null || echo "otap is not running"
+otap summary 2>/dev/null || echo "otap is not running"
 ```
 
-## API Endpoints
+## CLI Commands
 
-All endpoints are on `http://localhost:8126`.
+All commands query the running otap instance. Output is JSON.
 
-### GET /api/summary
+### otap summary
 
 High-level overview — start here.
 
 ```bash
-curl -s http://localhost:8126/api/summary | python3 -m json.tool
+otap summary
 ```
 
 Returns:
@@ -39,29 +35,29 @@ Returns:
 {
   "traceCount": 42,
   "errorCount": 3,
-  "services": ["risk-api", "surefin-worker", "payment-svc"],
+  "services": ["risk-api", "worker", "payment-svc"],
   "spanCount": 156
 }
 ```
 
-### GET /api/services
+### otap services
 
 List all discovered services.
 
 ```bash
-curl -s http://localhost:8126/api/services
+otap services
 ```
 
-### GET /api/traces?service=NAME&limit=N
+### otap traces
 
 List recent traces. Filter by service name and limit results.
 
 ```bash
 # All recent traces (default limit: 50)
-curl -s http://localhost:8126/api/traces | python3 -m json.tool
+otap traces
 
 # Only traces from risk-api
-curl -s "http://localhost:8126/api/traces?service=risk-api&limit=10" | python3 -m json.tool
+otap traces --service risk-api --limit 10
 ```
 
 Each trace contains:
@@ -77,24 +73,24 @@ Each trace contains:
   - `meta` — key-value tags (e.g. `http.method`, `db.type`, `http.status_code`)
   - `parentId` — parent span ID for tree reconstruction
 
-### GET /api/traces/:traceId
+### otap trace TRACE_ID
 
 Get a single trace with all its spans.
 
 ```bash
-curl -s http://localhost:8126/api/traces/1234567890 | python3 -m json.tool
+otap trace 1234567890
 ```
 
-### GET /api/errors?level=LEVEL&limit=N
+### otap errors
 
 List recent Sentry errors.
 
 ```bash
 # All errors
-curl -s http://localhost:8126/api/errors | python3 -m json.tool
+otap errors
 
 # Only error-level (not warnings)
-curl -s "http://localhost:8126/api/errors?level=error&limit=5" | python3 -m json.tool
+otap errors --level error --limit 5
 ```
 
 Each error contains:
@@ -106,12 +102,12 @@ Each error contains:
 - `contexts` — additional context (including Datadog trace correlation)
 - `breadcrumbs.values[]` — events leading up to the error
 
-### POST /api/clear
+### otap clear
 
 Clear all stored traces and errors.
 
 ```bash
-curl -s -X POST http://localhost:8126/api/clear
+otap clear
 ```
 
 ## Typical Workflows
@@ -120,10 +116,10 @@ curl -s -X POST http://localhost:8126/api/clear
 
 ```bash
 # 1. See what services are active
-curl -s http://localhost:8126/api/summary
+otap summary
 
 # 2. Get recent traces for the API, look for slow ones
-curl -s "http://localhost:8126/api/traces?service=risk-api&limit=20" | \
+otap traces --service risk-api --limit 20 | \
   python3 -c "
 import sys, json
 traces = json.load(sys.stdin)
@@ -137,14 +133,14 @@ for t in traces:
 "
 
 # 3. Drill into a specific slow trace
-curl -s http://localhost:8126/api/traces/TRACE_ID | python3 -m json.tool
+otap trace TRACE_ID
 ```
 
 ### Check for errors after a code change
 
 ```bash
 # See if any new errors appeared
-curl -s "http://localhost:8126/api/errors?limit=5" | \
+otap errors --limit 5 | \
   python3 -c "
 import sys, json
 errors = json.load(sys.stdin)
