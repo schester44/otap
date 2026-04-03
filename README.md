@@ -8,7 +8,7 @@ Single command. No config. Starts receivers, renders a TUI, tears down on exit.
 
 ```bash
 # Via brew
-brew tap schester/tap
+brew tap schester44/tap
 brew install otap
 otap
 
