@@ -4,18 +4,11 @@ import type { Span, SentryError } from "./types.js";
 import { bus } from "./events.js";
 import * as apiStore from "./api-store.js";
 
-// Noisy polling queries that should be dropped by default
-const BUILTIN_DROP_PATTERNS = [
-  "pgboss",
-];
-
 export type ServerConfig = {
   ddPort: number;
   sentryPort: number;
-  /** Additional resource patterns to drop (substring match on span resource). */
+  /** Resource patterns to drop (substring match on span resource). */
   dropPatterns?: string[];
-  /** Set to true to disable the built-in drop patterns (pgboss, etc.) */
-  noDefaultDrops?: boolean;
 };
 
 export type Servers = {
@@ -111,10 +104,7 @@ function extractStacktrace(payload: any) {
 }
 
 export function startServers(config: ServerConfig): Servers {
-  const { ddPort, sentryPort, dropPatterns = [], noDefaultDrops = false } = config;
-  const allDropPatterns = noDefaultDrops
-    ? dropPatterns
-    : [...BUILTIN_DROP_PATTERNS, ...dropPatterns];
+  const { ddPort, sentryPort, dropPatterns = [] } = config;
 
   function filterSpans(spans: Span[]): Span[] {
     return spans.filter((s) => {
@@ -123,10 +113,10 @@ export function startServers(config: ServerConfig): Servers {
       const priority = s.metrics?.["_sampling_priority_v1"];
       if (priority !== undefined && priority < 0) return false;
 
-      // Honor --drop patterns + built-in defaults
-      if (allDropPatterns.length > 0) {
+      // Honor --drop patterns
+      if (dropPatterns.length > 0) {
         const resource = s.resource || s.name;
-        if (allDropPatterns.some((p) => resource.includes(p))) return false;
+        if (dropPatterns.some((p) => resource.includes(p))) return false;
       }
 
       return true;

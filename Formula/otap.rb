@@ -7,6 +7,9 @@ class Otap < Formula
 
   depends_on "oven-sh/bun/bun"
 
+  # OpenTUI ships a native dylib that Homebrew shouldn't relink
+  skip_clean "libexec"
+
   def install
     libexec.install "src", "package.json", "tsconfig.json"
 

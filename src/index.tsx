@@ -651,7 +651,7 @@ function ErrorDetailView({ error, width, height, scrollOffset }: {
 
 // ─── Bootstrap ───────────────────────────────────────────────────
 
-// Parse --drop flags: e.g. --drop pgboss --drop "SELECT FROM jobs"
+// Parse --drop flags: e.g. --drop "health_check" --drop "SELECT 1"
 const dropPatterns: string[] = [];
 for (let i = 0; i < process.argv.length; i++) {
   if (process.argv[i] === "--drop" && process.argv[i + 1]) {

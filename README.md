@@ -27,7 +27,7 @@ Embeds two HTTP receivers and a terminal UI in a single process:
 - **Sentry receiver** (`:8137`) — accepts `@sentry/node` envelope payloads (`/api/{id}/envelope/`)
 - **TUI** — OpenTUI React app with trace waterfall, span inspection, error viewer, keyboard navigation
 
-Noisy spans (pgboss polling, etc.) are filtered by default.
+Use `--drop` to filter noisy spans by resource pattern.
 
 ## Keyboard
 
@@ -46,10 +46,9 @@ Noisy spans (pgboss polling, etc.) are filtered by default.
 
 ## Filtering Noisy Spans
 
-pgboss polling queries are dropped by default. Add more patterns with `--drop`:
+Drop spans matching a resource substring with `--drop`:
 
 ```bash
-# Drop additional patterns
 otap --drop health_check --drop "SELECT 1"
 ```
 

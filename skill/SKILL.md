@@ -9,11 +9,11 @@ The local-otel tool acts as a fake Datadog agent (port 8126) and Sentry server (
 ## Starting otap
 
 ```bash
-# Basic (pgboss polling is filtered by default)
-./tools/otap/bin/otap
+# Basic
+otap
 
-# Filter additional noisy spans
-./tools/otap/bin/otap --drop health_check
+# Filter noisy spans by resource pattern
+otap --drop health_check --drop "SELECT 1"
 ```
 
 ## Checking if otap is running
