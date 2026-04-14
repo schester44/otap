@@ -1,8 +1,8 @@
 class Otap < Formula
-  desc "Local observability TUI — tap into Datadog traces and Sentry errors"
+  desc "Local observability TUI — tap into Datadog, OpenTelemetry, and Sentry"
   homepage "https://github.com/schester44/otap"
-  url "https://github.com/schester44/otap/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "81fba2075aa7123520918e8953b19ecdd9eb3a837664e920f8700127868f3d5d"
+  url "https://github.com/schester44/otap/archive/refs/tags/v0.2.0.tar.gz"
+  sha256 "52608db669c61bad50da1c65596006c7eefe836da32f7406622cad02afb8472a"
   license "MIT"
 
   depends_on "oven-sh/bun/bun"
