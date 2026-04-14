@@ -3,10 +3,12 @@ import { gunzipSync } from "node:zlib";
 import type { Span, SentryError } from "./types.js";
 import { bus } from "./events.js";
 import * as apiStore from "./api-store.js";
+import { parseOtlpSpans, decodeOtlpBody } from "./otlp.js";
 
 export type ServerConfig = {
   ddPort: number;
   sentryPort: number;
+  otlpPort: number;
   /** Resource patterns to drop (substring match on span resource). */
   dropPatterns?: string[];
 };
@@ -14,6 +16,7 @@ export type ServerConfig = {
 export type Servers = {
   dd: ReturnType<typeof Bun.serve>;
   sentry: ReturnType<typeof Bun.serve>;
+  otlp: ReturnType<typeof Bun.serve>;
   stop: () => void;
 };
 
@@ -104,7 +107,7 @@ function extractStacktrace(payload: any) {
 }
 
 export function startServers(config: ServerConfig): Servers {
-  const { ddPort, sentryPort, dropPatterns = [] } = config;
+  const { ddPort, sentryPort, otlpPort, dropPatterns = [] } = config;
 
   function filterSpans(spans: Span[]): Span[] {
     return spans.filter((s) => {
@@ -128,7 +131,7 @@ export function startServers(config: ServerConfig): Servers {
     if (filtered.length > 0) bus.emit("spans", filtered);
   }
   function onError(error: SentryError) { bus.emit("error", error); }
-  function log(source: "dd" | "sentry", msg: string) { bus.emit("log", { source, msg }); }
+  function log(source: "dd" | "sentry" | "otlp", msg: string) { bus.emit("log", { source, msg }); }
 
   const dd = Bun.serve({
     port: ddPort,
@@ -347,12 +350,81 @@ export function startServers(config: ServerConfig): Servers {
     },
   });
 
+  // ─── OTLP Receiver ───────────────────────────────────────────
+
+  const otlp = Bun.serve({
+    port: otlpPort,
+    hostname: "0.0.0.0",
+    async fetch(req) {
+      const url = new URL(req.url);
+
+      // CORS preflight
+      if (req.method === "OPTIONS") {
+        return new Response(null, {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+          },
+        });
+      }
+
+      // OTLP trace export endpoint
+      if (url.pathname === "/v1/traces" && req.method === "POST") {
+        try {
+          const raw = Buffer.from(await req.arrayBuffer());
+          if (raw.length === 0) {
+            return Response.json({});
+          }
+
+          const contentType = req.headers.get("content-type") ?? "application/json";
+          const contentEncoding = req.headers.get("content-encoding");
+          const body = decodeOtlpBody(raw, contentType, contentEncoding);
+
+          if (!body) {
+            log("otlp", "Failed to decode OTLP payload");
+            return new Response("Bad Request", { status: 400 });
+          }
+
+          const spans = parseOtlpSpans(body);
+          if (spans.length > 0) {
+            onSpans(spans);
+            const traceIds = new Set(spans.map((s) => s.traceId));
+            log("otlp", `${spans.length} span(s), ${traceIds.size} trace(s)`);
+          }
+
+          // OTLP expects a partial success response
+          return Response.json({});
+        } catch (err: any) {
+          log("otlp", `Error: ${err.message}`);
+          return new Response("Bad Request", { status: 400 });
+        }
+      }
+
+      // OTLP metrics endpoint — accept and discard for now
+      if (url.pathname === "/v1/metrics" && req.method === "POST") {
+        await req.arrayBuffer();
+        return Response.json({});
+      }
+
+      // OTLP logs endpoint — accept and discard for now
+      if (url.pathname === "/v1/logs" && req.method === "POST") {
+        await req.arrayBuffer();
+        return Response.json({});
+      }
+
+      return new Response("OK");
+    },
+  });
+
   return {
     dd,
     sentry,
+    otlp,
     stop() {
       dd.stop(true);
       sentry.stop(true);
+      otlp.stop(true);
     },
   };
 }

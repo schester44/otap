@@ -3,7 +3,7 @@ import type { Span, SentryError } from "./types.js";
 type EventMap = {
   spans: Span[];
   error: SentryError;
-  log: { source: "dd" | "sentry"; msg: string };
+  log: { source: "dd" | "sentry" | "otlp"; msg: string };
 };
 
 type Listener<K extends keyof EventMap> = (data: EventMap[K]) => void;

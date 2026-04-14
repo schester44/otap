@@ -16,6 +16,7 @@ import { bus } from "./events.js";
 
 const DD_PORT = parseInt(process.env.DD_PORT || "8126", 10);
 const SENTRY_PORT = parseInt(process.env.SENTRY_PORT || "8137", 10);
+const OTLP_PORT = parseInt(process.env.OTLP_PORT || "4318", 10);
 
 // ─── Service Colors ────────────────────────────────────────────────
 
@@ -372,7 +373,7 @@ function TraceListView({ traces, selectedIndex, height, width }: {
     return (
       <box style={{ padding: 1, flexDirection: "column" }}>
         <text style={{ fg: "#484f58" }}>{"◇ Waiting for traces…"}</text>
-        <text style={{ fg: "#30363d" }}>{"  dd-trace → :" + DD_PORT}</text>
+        <text style={{ fg: "#30363d" }}>{"  dd-trace → :" + DD_PORT + "  otlp → :" + OTLP_PORT}</text>
       </box>
     );
   }
@@ -659,7 +660,7 @@ for (let i = 0; i < process.argv.length; i++) {
   }
 }
 
-const servers = startServers({ ddPort: DD_PORT, sentryPort: SENTRY_PORT, dropPatterns });
+const servers = startServers({ ddPort: DD_PORT, sentryPort: SENTRY_PORT, otlpPort: OTLP_PORT, dropPatterns });
 
 process.on("SIGINT", () => {
   servers.stop();

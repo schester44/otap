@@ -1,6 +1,6 @@
 # otap
 
-Local observability TUI — tap into Datadog traces and Sentry errors right in your terminal.
+Local observability TUI — tap into Datadog traces, OpenTelemetry spans, and Sentry errors right in your terminal.
 
 ![otap screenshot](screenshot.png)
 
@@ -19,13 +19,17 @@ otap
 
 # Start your app — dd-trace already defaults to localhost:8126
 DD_API_KEY=local SENTRY_DNS=http://key@localhost:8137/1 yarn start
+
+# Or with OpenTelemetry
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 node --import ./instrument.mjs app.js
 ```
 
 ## What It Does
 
-Embeds two HTTP receivers and a terminal UI in a single process:
+Embeds three HTTP receivers and a terminal UI in a single process:
 
 - **Datadog receiver** (`:8126`) — accepts `dd-trace` msgpack payloads (`/v0.3/traces`, `/v0.4/traces`, etc.). Uses the default DD Agent port so no extra config needed.
+- **OTLP receiver** (`:4318`) — accepts OpenTelemetry HTTP trace exports (`/v1/traces`). Works with any `@opentelemetry/exporter-trace-otlp-http` SDK.
 - **Sentry receiver** (`:8137`) — accepts `@sentry/node` envelope payloads (`/api/{id}/envelope/`)
 - **TUI** — OpenTUI React app with trace waterfall, span inspection, error viewer, keyboard navigation
 
@@ -80,6 +84,7 @@ otap help                          # full usage
 | Env Var | Default | Description |
 |---------|---------|-------------|
 | `DD_PORT` | `8126` | Datadog receiver port |
+| `OTLP_PORT` | `4318` | OTLP/HTTP receiver port |
 | `SENTRY_PORT` | `8137` | Sentry receiver port |
 
 ## Requirements
