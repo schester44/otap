@@ -105,6 +105,10 @@ function App({ servers }: { servers: Servers }) {
   const [selectedSpanIndex, setSelectedSpanIndex] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
   const [serviceFilter, setServiceFilter] = useState<string | null>(null); // null = all
+  const [searchMode, setSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchModeRef = useRef(false);
+  searchModeRef.current = searchMode;
   const pausedRef = useRef(false);
   pausedRef.current = paused;
 
@@ -114,12 +118,33 @@ function App({ servers }: { servers: Servers }) {
   ).sort();
 
   // Filtered data
-  const filteredTraces = serviceFilter
+  const serviceTraces = serviceFilter
     ? store.traces.filter((t) => t.service === serviceFilter)
     : store.traces;
-  const filteredErrors = serviceFilter
+  const serviceErrors = serviceFilter
     ? store.errors.filter((e) => e.tags?.service === serviceFilter || !serviceFilter)
     : store.errors;
+
+  const isExclude = searchQuery.startsWith("-");
+  const searchTerm = isExclude ? searchQuery.slice(1) : searchQuery;
+  const searchLower = searchTerm.toLowerCase();
+  const filteredTraces = searchTerm
+    ? serviceTraces.filter((t) => {
+        const match = t.spans.some((s) =>
+          s.name.toLowerCase().includes(searchLower) ||
+          s.resource.toLowerCase().includes(searchLower)
+        );
+        return isExclude ? !match : match;
+      })
+    : serviceTraces;
+  const filteredErrors = searchTerm
+    ? serviceErrors.filter((e) => {
+        const match =
+          e.message.toLowerCase().includes(searchLower) ||
+          (e.level && e.level.toLowerCase().includes(searchLower));
+        return isExclude ? !match : match;
+      })
+    : serviceErrors;
 
   // Subscribe to server events
   useEffect(() => {
@@ -148,6 +173,34 @@ function App({ servers }: { servers: Servers }) {
       servers.stop();
       renderer.destroy();
       process.exit(0);
+    }
+
+    // Search mode input handling
+    if (searchModeRef.current) {
+      key.preventDefault();
+      if (key.name === "escape") {
+        setSearchMode(false);
+        setSearchQuery("");
+        setSelectedIndex(0);
+        setDetailScroll(0);
+      } else if (key.name === "return") {
+        setSearchMode(false);
+        setSelectedIndex(0);
+        setDetailScroll(0);
+      } else if (key.name === "backspace" || key.name === "delete") {
+        setSearchQuery((q) => q.slice(0, -1));
+        setSelectedIndex(0);
+        setDetailScroll(0);
+      } else if (key.name === "space") {
+        setSearchQuery((q) => q + " ");
+        setSelectedIndex(0);
+        setDetailScroll(0);
+      } else if (key.name && key.name.length === 1 && !key.ctrl && !key.meta) {
+        setSearchQuery((q) => q + key.name);
+        setSelectedIndex(0);
+        setDetailScroll(0);
+      }
+      return;
     }
 
     const list = tab === "traces" ? filteredTraces : filteredErrors;
@@ -250,6 +303,19 @@ function App({ servers }: { servers: Servers }) {
         setSelectedIndex(0);
         setDetailScroll(0);
         break;
+      case "/":
+        setSearchMode(true);
+        setSearchQuery("");
+        setSelectedSpanIndex(null);
+        break;
+      case "n":
+        // Clear search
+        if (searchQuery) {
+          setSearchQuery("");
+          setSelectedIndex(0);
+          setDetailScroll(0);
+        }
+        break;
     }
   });
 
@@ -339,26 +405,46 @@ function App({ servers }: { servers: Servers }) {
         </box>
       </box>
 
-      {/* Help */}
+      {/* Help / Search bar */}
       <box style={{ height: helpH, backgroundColor: "#161b22", flexDirection: "row" }}>
-        <text style={{ fg: "#484f58" }}>{" ↑↓"}</text>
-        <text style={{ fg: "#6e7681" }}>{" nav "}</text>
-        <text style={{ fg: "#484f58" }}>{"enter"}</text>
-        <text style={{ fg: "#6e7681" }}>{" inspect "}</text>
-        <text style={{ fg: "#484f58" }}>{"esc"}</text>
-        <text style={{ fg: "#6e7681" }}>{" back "}</text>
-        <text style={{ fg: "#484f58" }}>{"tab"}</text>
-        <text style={{ fg: "#6e7681" }}>{" switch "}</text>
-        <text style={{ fg: "#484f58" }}>{"s"}</text>
-        <text style={{ fg: "#6e7681" }}>{" service "}</text>
-        <text style={{ fg: "#484f58" }}>{"←→"}</text>
-        <text style={{ fg: "#6e7681" }}>{" scroll "}</text>
-        <text style={{ fg: "#484f58" }}>{"space"}</text>
-        <text style={{ fg: "#6e7681" }}>{" pause "}</text>
-        <text style={{ fg: "#484f58" }}>{"x"}</text>
-        <text style={{ fg: "#6e7681" }}>{" clear "}</text>
-        <text style={{ fg: "#484f58" }}>{"^c"}</text>
-        <text style={{ fg: "#6e7681" }}>{" quit"}</text>
+        {searchMode ? (
+          <>
+            <text style={{ fg: "#f0883e" }}>{" /"}</text>
+            <text style={{ fg: "#e6edf3" }}>{searchQuery}</text>
+            <text style={{ fg: "#f0883e" }}>{"█"}</text>
+            <text style={{ fg: "#484f58" }}>{"  enter confirm · esc cancel · prefix - to exclude"}</text>
+          </>
+        ) : searchQuery ? (
+          <>
+            <text style={{ fg: isExclude ? "#f85149" : "#f0883e" }}>{(isExclude ? " ⊘ " : " / ") + searchTerm}</text>
+            <text style={{ fg: "#6e7681" }}>{" (" + (tab === "traces" ? filteredTraces.length : filteredErrors.length) + (isExclude ? " remaining" : " matches") + ") "}</text>
+            <text style={{ fg: "#484f58" }}>{"n"}</text>
+            <text style={{ fg: "#6e7681" }}>{" clear "}</text>
+            <text style={{ fg: "#484f58" }}>{" /"}</text>
+            <text style={{ fg: "#6e7681" }}>{" new search"}</text>
+          </>
+        ) : (
+          <>
+            <text style={{ fg: "#484f58" }}>{" ↑↓"}</text>
+            <text style={{ fg: "#6e7681" }}>{" nav "}</text>
+            <text style={{ fg: "#484f58" }}>{"enter"}</text>
+            <text style={{ fg: "#6e7681" }}>{" inspect "}</text>
+            <text style={{ fg: "#484f58" }}>{"esc"}</text>
+            <text style={{ fg: "#6e7681" }}>{" back "}</text>
+            <text style={{ fg: "#484f58" }}>{"tab"}</text>
+            <text style={{ fg: "#6e7681" }}>{" switch "}</text>
+            <text style={{ fg: "#484f58" }}>{"s"}</text>
+            <text style={{ fg: "#6e7681" }}>{" service "}</text>
+            <text style={{ fg: "#484f58" }}>{" /"}</text>
+            <text style={{ fg: "#6e7681" }}>{" search "}</text>
+            <text style={{ fg: "#484f58" }}>{"space"}</text>
+            <text style={{ fg: "#6e7681" }}>{" pause "}</text>
+            <text style={{ fg: "#484f58" }}>{"x"}</text>
+            <text style={{ fg: "#6e7681" }}>{" clear "}</text>
+            <text style={{ fg: "#484f58" }}>{"^c"}</text>
+            <text style={{ fg: "#6e7681" }}>{" quit"}</text>
+          </>
+        )}
       </box>
     </box>
   );
